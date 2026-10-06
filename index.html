@@ -1,0 +1,418 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>FOLIUM</title>
+    <link rel="manifest" href="./manifest.webmanifest">
+    <link rel="apple-touch-icon" href="./apple-touch-icon.png">
+    <link rel="icon" type="image/png" href="./icon-192.png">
+    <meta name="theme-color" content="#0068a8">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="FOLIUM">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@700&family=Roboto+Condensed:ital,wght@1,900&display=swap" rel="stylesheet">
+    
+    <style>
+        body { font-family: 'Segoe UI', Roboto, sans-serif; background: #eef2f3; display: flex; flex-direction: column; align-items: center; padding: max(10px, env(safe-area-inset-top)) max(10px, env(safe-area-inset-right)) max(10px, env(safe-area-inset-bottom)) max(10px, env(safe-area-inset-left)); margin: 0; touch-action: manipulation; }
+        .container { background: white; padding: 20px; border-radius: 15px; box-shadow: 0 10px 30px rgba(0,0,0,0.1); width: 95%; max-width: 1000px; }
+        
+        /* Pestañas */
+        .tabs-container { display: flex; gap: 5px; overflow-x: auto; padding-bottom: 5px; align-items: center; }
+        .tab { background: #cbd5e1; color: #2563eb; padding: 10px 15px; border-radius: 8px 8px 0 0; cursor: pointer; font-weight: bold; border: none; white-space: nowrap; display: flex; align-items: center; gap: 10px; }
+        .tab.active { background: #2563eb; color: white; }
+        .tab i.fa-circle-xmark { color: #f87171; font-size: 0.9em; }
+        .tab i.fa-image { font-size: 0.8em; opacity: 0.7; }
+        .add-tab { background: #059669; color: white; padding: 10px 15px; border-radius: 8px; cursor: pointer; border: none; font-size: 1.1em; flex-shrink: 0; }
+        
+        /* Botón de carga condicional */
+        .custom-file-upload { background: #2563eb; color: white; padding: 12px 20px; border-radius: 10px; display: flex; justify-content: center; align-items: center; gap: 10px; cursor: pointer; font-weight: bold; text-transform: uppercase; font-size: 0.85em; margin-bottom: 15px; }
+        .hidden { display: none !important; }
+        #imageLoader { display: none; }
+
+        .controls { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+        .control-box { border: 1px solid #ddd; border-radius: 10px; background: #fafafa; overflow: hidden; }
+        .box-header { background: #2563eb; color: white; padding: 12px 15px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; }
+        .box-header h3 { margin: 0; font-size: 0.85em; text-transform: uppercase; }
+        
+        .row-inline { display: flex; gap: 10px; margin-bottom: 15px; }
+        .row-inline .input-group { flex: 1; margin-bottom: 0; }
+        .row-inline .color-group { flex: 0 0 60px; }
+
+        .number-control { display: flex; align-items: center; gap: 5px; background: white; border: 1px solid #ccc; border-radius: 5px; padding: 2px; }
+        .number-control input { border: none; width: 100%; text-align: center; font-weight: bold; font-size: 1.1em; outline: none; background: transparent; }
+        .btn-step { background: #f1f5f9; border: none; width: 35px; height: 35px; border-radius: 4px; cursor: pointer; display: flex; align-items: center; justify-content: center; }
+        
+        .input-group { display: flex; flex-direction: column; gap: 5px; margin-bottom: 15px; }
+        label { font-size: 0.7em; font-weight: bold; color: #555; text-transform: uppercase; }
+        select, input[type="text"], input[type="number"] { padding: 10px; border-radius: 5px; border: 1px solid #ccc; font-size: 0.9em; }
+        input[type="color"] { width: 100%; height: 41px; border: 1px solid #ccc; border-radius: 5px; background: white; cursor: pointer; padding: 2px; }
+
+        canvas { border: 2px solid #333; max-width: 100%; height: auto; background: #ccc; margin-top: 10px; display: block; border-radius: 8px; }
+        .btn-main { background: #059669; color: white; border: none; padding: 15px; border-radius: 8px; cursor: pointer; font-weight: bold; width: 100%; font-size: 1.1em; margin: 1px 0; }
+        .btn-icon { background: rgba(255,255,255,0.2); border: none; color: white; border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+    .export-overlay { position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,.7); overflow:auto; padding:20px; display:flex; align-items:flex-start; justify-content:center; }
+        .export-card { background:white; color:#222; width:100%; max-width:650px; padding:18px; border-radius:15px; margin:auto; }
+        .export-card img { display:block; max-width:100%; max-height:55vh; margin:12px auto; object-fit:contain; }
+        .export-card a { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }
+        .export-card button:disabled { opacity:.5; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="tabs-container" id="tabsBar"></div>
+
+    <label for="imageLoader" id="uploadLabel" class="custom-file-upload">
+        <i class="fa-solid fa-image"></i> Seleccionar Plantilla
+    </label>
+    <input type="file" id="imageLoader" accept="image/*">
+
+    <div class="controls">
+        <div class="control-box">
+            <div class="box-header" id="headerNombre">
+                <h3>Nombre</h3>
+                <button class="btn-icon" id="eyeNombre"><i class="fa-solid fa-eye"></i></button>
+            </div>
+            <div class="box-content" id="contentNombre" style="padding:15px;">
+                <div class="input-group"><input type="text" id="nombreInput" placeholder="Nombre..."></div>
+                <div class="row-inline">
+                    <div class="input-group">
+                        <select id="fontNombre">
+                            <option value="Arial">Arial</option>
+                            <option value="'Bebas Neue'">Bebas Neue</option>
+                            <option value="'Oswald'">Oswald</option>
+                            <option value="'Roboto Condensed'">Roboto Itálica</option>
+                        </select>
+                    </div>
+                    <div class="input-group color-group"><input type="color" id="colorNombre"></div>
+                </div>
+                <div class="input-group">
+                    <label>Tamaño / Posición Y:</label>
+                    <div style="display:flex; gap:10px;">
+                        <div class="number-control" style="flex:1;">
+                            <button class="btn-step" onclick="stepVal('sizeNombre', -2)"><i class="fa-solid fa-minus"></i></button>
+                            <input type="number" id="sizeNombre">
+                            <button class="btn-step" onclick="stepVal('sizeNombre', 2)"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div class="number-control" style="flex:1;">
+                            <button class="btn-step" onclick="stepVal('yNombre', -10)"><i class="fa-solid fa-chevron-up"></i></button>
+                            <input type="number" id="yNombre">
+                            <button class="btn-step" onclick="stepVal('yNombre', 10)"><i class="fa-solid fa-chevron-down"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="control-box">
+            <div class="box-header" id="headerNumero">
+                <h3>Folio</h3>
+                <button class="btn-icon" id="eyeNumero"><i class="fa-solid fa-eye"></i></button>
+            </div>
+            <div class="box-content" id="contentNumero" style="padding:15px;">
+                <div class="input-group">
+                    <div class="number-control">
+                        <button class="btn-step" onclick="folioStep(-1)"><i class="fa-solid fa-minus"></i></button>
+                        <input type="text" id="numeroInput">
+                        <button class="btn-step" onclick="folioStep(1)"><i class="fa-solid fa-plus"></i></button>
+                    </div>
+                </div>
+                <div class="row-inline">
+                    <div class="input-group">
+                        <select id="fontNumero">
+                            <option value="Arial">Arial</option>
+                            <option value="'Bebas Neue'">Bebas Neue</option>
+                            <option value="'Oswald'">Oswald</option>
+                            <option value="'Roboto Condensed'">Roboto Itálica</option>
+                        </select>
+                    </div>
+                    <div class="input-group color-group"><input type="color" id="colorNumero"></div>
+                </div>
+                <div class="input-group">
+                    <label>Tamaño / Posición Y:</label>
+                    <div style="display:flex; gap:10px;">
+                        <div class="number-control" style="flex:1;">
+                            <button class="btn-step" onclick="stepVal('sizeNumero', -5)"><i class="fa-solid fa-minus"></i></button>
+                            <input type="number" id="sizeNumero">
+                            <button class="btn-step" onclick="stepVal('sizeNumero', 5)"><i class="fa-solid fa-plus"></i></button>
+                        </div>
+                        <div class="number-control" style="flex:1;">
+                            <button class="btn-step" onclick="stepVal('yNumero', -10)"><i class="fa-solid fa-chevron-up"></i></button>
+                            <input type="number" id="yNumero">
+                            <button class="btn-step" onclick="stepVal('yNumero', 10)"><i class="fa-solid fa-chevron-down"></i></button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <button class="btn-main" id="btnDescargar"><i class="fa-solid fa-download"></i> Descargar Folio</button>
+    <canvas id="canvas"></canvas>
+    <div id="exportOverlay" class="export-overlay hidden" role="dialog" aria-modal="true" aria-label="Exportar folio">
+      <div class="export-card">
+        <h3>Guardar o compartir folio</h3>
+        <p id="exportStatus" role="status">Preparando imagen…</p>
+        <img id="exportPreview" alt="Vista previa del folio">
+        <button class="btn-main" id="shareImage" disabled>Compartir / Guardar imagen</button>
+        <a class="btn-main hidden" id="downloadImage">Descargar PNG</a>
+        <p>En iPhone/iPad, pulsa Compartir y elige Guardar imagen o Guardar en Archivos. Si no está disponible, mantén presionada la imagen para guardarla.</p>
+        <button class="btn-main" id="closeExport" style="background:#64748b">Cerrar</button>
+      </div>
+    </div>
+</div>
+
+<script>
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const img = new Image();
+    let db;
+    let currentTabId = localStorage.getItem('currentTabIdChicco') || "tab_1";
+
+    const configBase = () => ({
+        nombre: { texto: '', y: 500, size: 60, font: 'Arial', color: '#000000' },
+        numero: { texto: '001', y: 400, size: 120, font: 'Arial', color: '#000000' }
+    });
+
+    let proyectos = JSON.parse(localStorage.getItem('proyectosChicco')) || [
+        { id: "tab_1", nombreTab: "Proyecto 1", config: configBase() }
+    ];
+
+    const request = indexedDB.open("EditorMultiPestañaDB", 2);
+    request.onsuccess = (e) => { db = e.target.result; if (!proyectos.some(p => p.id === currentTabId)) currentTabId = proyectos[0].id; renderTabs(); switchTab(currentTabId); };
+    request.onupgradeneeded = (e) => { if (!e.target.result.objectStoreNames.contains("imagenes")) e.target.result.createObjectStore("imagenes"); };
+
+    function dibujar() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        if (img.src && img.complete && img.naturalWidth !== 0) ctx.drawImage(img, 0, 0);
+        const p = proyectos.find(proj => proj.id === currentTabId);
+        if (!p) return;
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillStyle = p.config.nombre.color;
+        ctx.font = `bold ${p.config.nombre.size}px ${p.config.nombre.font}`;
+        ctx.fillText(p.config.nombre.texto, canvas.width / 2, p.config.nombre.y);
+        ctx.fillStyle = p.config.numero.color;
+        ctx.font = `bold ${p.config.numero.size}px ${p.config.numero.font}`;
+        ctx.fillText(p.config.numero.texto, canvas.width / 2, p.config.numero.y);
+    }
+
+    const inputsMap = [
+        { id: 'nombreInput', sec: 'nombre', key: 'texto' },
+        { id: 'sizeNombre', sec: 'nombre', key: 'size', isNum: true },
+        { id: 'yNombre', sec: 'nombre', key: 'y', isNum: true },
+        { id: 'fontNombre', sec: 'nombre', key: 'font' },
+        { id: 'colorNombre', sec: 'nombre', key: 'color' },
+        { id: 'numeroInput', sec: 'numero', key: 'texto' },
+        { id: 'sizeNumero', sec: 'numero', key: 'size', isNum: true },
+        { id: 'yNumero', sec: 'numero', key: 'y', isNum: true },
+        { id: 'fontNumero', sec: 'numero', key: 'font' },
+        { id: 'colorNumero', sec: 'numero', key: 'color' }
+    ];
+
+    inputsMap.forEach(item => {
+        document.getElementById(item.id).oninput = (e) => {
+            const p = proyectos.find(proj => proj.id === currentTabId);
+            p.config[item.sec][item.key] = item.isNum ? parseInt(e.target.value || 0) : e.target.value;
+            localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
+            dibujar();
+        };
+    });
+
+    function switchTab(id) {
+        imageLoading = true;
+        currentTabId = id;
+        localStorage.setItem('currentTabIdChicco', id);
+        const p = proyectos.find(proj => proj.id === id);
+        if(!p) return;
+        inputsMap.forEach(item => document.getElementById(item.id).value = p.config[item.sec][item.key]);
+        const transaction = db.transaction(["imagenes"], "readonly");
+        const getReq = transaction.objectStore("imagenes").get(id);
+        getReq.onsuccess = () => { 
+            if (id !== currentTabId) return;
+            const data = getReq.result;
+            img.src = data || ''; 
+            // Ocultar botón si ya hay imagen
+            document.getElementById('uploadLabel').classList.toggle('hidden', !!data);
+            if(!data) { imageLoading = false; canvas.width = 800; canvas.height = 600; dibujar(); } 
+        };
+        renderTabs();
+    }
+
+    function renderTabs() {
+        const bar = document.getElementById('tabsBar');
+        bar.innerHTML = '';
+        proyectos.forEach(p => {
+            const btn = document.createElement('button');
+            btn.className = `tab ${p.id === currentTabId ? 'active' : ''}`;
+            const title = document.createElement('span'); title.textContent = p.nombreTab; btn.appendChild(title);
+            
+            // Icono para cambiar imagen solo en la pestaña activa
+            if(p.id === currentTabId) {
+                const changeImg = document.createElement('i');
+                changeImg.className = "fa-solid fa-image";
+                changeImg.onclick = (e) => { e.stopPropagation(); document.getElementById('imageLoader').click(); };
+                btn.appendChild(changeImg);
+            }
+
+            if (proyectos.length > 1) {
+                const del = document.createElement('i');
+                del.className = "fa-solid fa-circle-xmark";
+                del.onclick = (e) => { e.stopPropagation(); deleteTab(p.id); };
+                btn.appendChild(del);
+            }
+            btn.onclick = () => switchTab(p.id);
+            bar.appendChild(btn);
+        });
+        const addBtn = document.createElement('button');
+        addBtn.className = 'add-tab';
+        addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
+        addBtn.onclick = () => {
+            const n = prompt("Nombre:");
+            if(n) {
+                const id = "tab_" + Date.now();
+                proyectos.push({ id, nombreTab: n, config: configBase() });
+                localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
+                switchTab(id);
+                // Activar carga de imagen automáticamente al crear
+                setTimeout(() => document.getElementById('imageLoader').click(), 100);
+            }
+        };
+        bar.appendChild(addBtn);
+    }
+
+    function deleteTab(id) {
+        if (!confirm("¿Eliminar proyecto?")) return;
+        proyectos = proyectos.filter(p => p.id !== id);
+        db.transaction(["imagenes"], "readwrite").objectStore("imagenes").delete(id);
+        if (currentTabId === id) currentTabId = proyectos[0] ? proyectos[0].id : null;
+        localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
+        if (currentTabId) switchTab(currentTabId); else location.reload();
+    }
+
+    function stepVal(id, amount) {
+        const el = document.getElementById(id);
+        el.value = parseInt(el.value || 0) + amount;
+        el.dispatchEvent(new Event('input'));
+    }
+
+    function folioStep(amount) {
+        const input = document.getElementById('numeroInput');
+        let val = input.value;
+        let numMatch = val.match(/\d+/);
+        if (!numMatch) { input.value = amount > 0 ? "1" : "0"; } 
+        else {
+            let originalStr = numMatch[0];
+            let num = Math.max(0, parseInt(originalStr) + amount);
+            let newNumStr = num.toString().padStart(originalStr.length, '0');
+            input.value = val.replace(originalStr, newNumStr);
+        }
+        input.dispatchEvent(new Event('input'));
+    }
+
+    document.getElementById('imageLoader').onchange = (e) => {
+        const file = e.target.files[0];
+        const targetTabId = currentTabId;
+        if (!file) return;
+        imageLoading = true;
+        const reader = new FileReader();
+        reader.onerror = () => { imageLoading = false; alert("No se pudo leer la plantilla."); };
+        reader.onload = (event) => {
+            db.transaction(["imagenes"], "readwrite").objectStore("imagenes").put(event.target.result, targetTabId);
+            if (targetTabId !== currentTabId) return;
+            img.src = event.target.result;
+            document.getElementById('uploadLabel').classList.add('hidden');
+        };
+        reader.readAsDataURL(file);
+    };
+
+    img.onerror = () => { imageLoading = false; if (!img.getAttribute('src')) return; alert("No se pudo cargar la plantilla. Selecciona una imagen PNG o JPEG."); };
+    img.onload = () => { imageLoading = false; canvas.width = img.width; canvas.height = img.height; dibujar(); };
+    
+    let exportURL = null, exportFile = null, exportGeneration = 0;
+    let imageLoading = false;
+    const overlay = document.getElementById('exportOverlay');
+    const shareButton = document.getElementById('shareImage');
+    const downloadLink = document.getElementById('downloadImage');
+    const exportStatus = document.getElementById('exportStatus');
+    const preview = document.getElementById('exportPreview');
+    function closeExport() {
+        exportGeneration++;
+        overlay.classList.add('hidden');
+        preview.removeAttribute('src');
+        downloadLink.removeAttribute('href');
+        if (exportURL) URL.revokeObjectURL(exportURL);
+        exportURL = null; exportFile = null;
+        document.getElementById('btnDescargar').focus();
+    }
+    document.getElementById('closeExport').onclick = closeExport;
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeExport(); });
+    document.getElementById('btnDescargar').onclick = async () => {
+        const p = proyectos.find(proj => proj.id === currentTabId);
+        if (!p || imageLoading || !img.complete || !img.naturalWidth) {
+            alert('Selecciona una plantilla y espera a que termine de cargar.'); return;
+        }
+        closeExport();
+        const generation = exportGeneration;
+        const tabId = currentTabId;
+        overlay.classList.remove('hidden');
+        shareButton.disabled = true;
+        downloadLink.classList.add('hidden');
+        exportStatus.textContent = 'Preparando imagen…';
+        document.getElementById('closeExport').focus();
+        try {
+            await Promise.all([document.fonts.load(`bold ${p.config.nombre.size}px ${p.config.nombre.font}`), document.fonts.load(`bold ${p.config.numero.size}px ${p.config.numero.font}`)]);
+            if (generation !== exportGeneration) return;
+            if (tabId !== currentTabId || imageLoading) throw new Error('El proyecto cambió. Cierra y vuelve a exportar.');
+            dibujar();
+            const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo generar la imagen.')), 'image/png'));
+            if (generation !== exportGeneration) return;
+            const name = `${p.nombreTab}_${p.config.numero.texto}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 150) + '.png';
+            exportFile = new File([blob], name, {type:'image/png'});
+            exportURL = URL.createObjectURL(blob);
+            preview.src = exportURL;
+            downloadLink.href = exportURL;
+            downloadLink.download = name;
+            downloadLink.classList.remove('hidden');
+            const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({files:[exportFile]}));
+            shareButton.disabled = !canShare;
+            exportStatus.textContent = canShare ? 'PNG listo. Elige cómo guardarlo o compartirlo.' : 'PNG listo. Descárgalo o mantén presionada la imagen para guardarla.';
+        } catch (error) {
+            if (generation === exportGeneration) exportStatus.textContent = 'No se pudo exportar: ' + error.message;
+        }
+    };
+    shareButton.onclick = async () => {
+        if (!exportFile) return;
+        shareButton.disabled = true;
+        try {
+            await navigator.share({files:[exportFile]});
+            exportStatus.textContent = 'Se completó la acción de compartir.';
+        } catch (error) {
+            exportStatus.textContent = error.name === 'AbortError' ? 'Compartir cancelado. Puedes volver a intentarlo.' : 'No se pudo compartir. Usa Descargar PNG o mantén presionada la imagen.';
+        } finally { shareButton.disabled = !exportFile; }
+    };
+    downloadLink.onclick = () => { exportStatus.textContent = 'Descarga solicitada. Revisa Descargas/Archivos; si no aparece, usa Compartir o mantén presionada la imagen.'; };
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') {
+        window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(console.error));
+    }
+
+    document.fonts.ready.then(dibujar);
+    function setupToggle(headerId, contentId, eyeId, storageKey) {
+        const header = document.getElementById(headerId);
+        const content = document.getElementById(contentId);
+        const eyeBtn = document.getElementById(eyeId);
+        if (localStorage.getItem(storageKey) === 'true') { content.style.display = 'none'; eyeBtn.innerHTML = '<i class="fa-solid fa-eye-slash"></i>'; }
+        header.onclick = () => {
+            const isHidden = content.style.display === 'none';
+            content.style.display = isHidden ? 'block' : 'none';
+            eyeBtn.innerHTML = isHidden ? '<i class="fa-solid fa-eye"></i>' : '<i class="fa-solid fa-eye-slash"></i>';
+            localStorage.setItem(storageKey, !isHidden);
+        };
+    }
+    setupToggle('headerNombre', 'contentNombre', 'eyeNombre', 'panelNombreOculto');
+    setupToggle('headerNumero', 'contentNumero', 'eyeNumero', 'panelNumeroOculto');
+</script>
+</body>
+</html>
