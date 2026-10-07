@@ -1,4 +1,4 @@
-const CACHE = 'folium-v1';
+const CACHE = 'folium-v2';
 const CORE = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', e => e.waitUntil(caches.open(CACHE).then(c => c.addAll(CORE))));
 self.addEventListener('activate', e => e.waitUntil(caches.keys().then(keys => Promise.all(keys.filter(k => k.startsWith('folium-') && k !== CACHE).map(k => caches.delete(k)))).then(() => self.clients.claim())));
