@@ -201,17 +201,6 @@
 
     <button class="btn-main" id="btnDescargar"><i class="fa-solid fa-download"></i> Descargar Folio</button>
     <canvas id="canvas"></canvas>
-    <div id="exportOverlay" class="export-overlay hidden" role="dialog" aria-modal="true" aria-label="Exportar folio">
-      <div class="export-card">
-        <h3>Guardar o compartir folio</h3>
-        <p id="exportStatus" role="status">Preparando imagen…</p>
-        <img id="exportPreview" alt="Vista previa del folio">
-        <button class="btn-main" id="shareImage" disabled>Compartir / Guardar imagen</button>
-        <a class="btn-main hidden" id="downloadImage">Descargar PNG</a>
-        <p>En iPhone/iPad, pulsa Compartir y elige Guardar imagen o Guardar en Archivos. Si no está disponible, mantén presionada la imagen para guardarla.</p>
-        <button class="btn-main" id="closeExport" style="background:#64748b">Cerrar</button>
-      </div>
-    </div>
     <footer class="footer">
     <p>© 2025 | Desarrollado por CHICCO</p>
 </footer>
@@ -384,69 +373,50 @@
     img.onerror = () => { imageLoading = false; if (!img.getAttribute('src')) return; alert("No se pudo cargar la plantilla. Selecciona una imagen PNG o JPEG."); };
     img.onload = () => { imageLoading = false; canvas.width = img.width; canvas.height = img.height; dibujar(); };
     
-    let exportURL = null, exportFile = null, exportGeneration = 0;
     let imageLoading = false;
-    const overlay = document.getElementById('exportOverlay');
-    const shareButton = document.getElementById('shareImage');
-    const downloadLink = document.getElementById('downloadImage');
-    const exportStatus = document.getElementById('exportStatus');
-    const preview = document.getElementById('exportPreview');
-    function closeExport() {
-        exportGeneration++;
-        overlay.classList.add('hidden');
-        preview.removeAttribute('src');
-        downloadLink.removeAttribute('href');
-        if (exportURL) URL.revokeObjectURL(exportURL);
-        exportURL = null; exportFile = null;
-        document.getElementById('btnDescargar').focus();
-    }
-    document.getElementById('closeExport').onclick = closeExport;
-    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !overlay.classList.contains('hidden')) closeExport(); });
+    let downloading = false;
     document.getElementById('btnDescargar').onclick = async () => {
+        const button = document.getElementById('btnDescargar');
         const p = proyectos.find(proj => proj.id === currentTabId);
         if (!p || imageLoading || !img.complete || !img.naturalWidth) {
-            alert('Selecciona una plantilla y espera a que termine de cargar.'); return;
+            alert('Selecciona una plantilla y espera a que termine de cargar.');
+            return;
         }
-        closeExport();
-        const generation = exportGeneration;
+        if (downloading) return;
+        downloading = true;
+        button.disabled = true;
+        const originalLabel = button.innerHTML;
         const tabId = currentTabId;
-        overlay.classList.remove('hidden');
-        shareButton.disabled = true;
-        downloadLink.classList.add('hidden');
-        exportStatus.textContent = 'Preparando imagen…';
-        document.getElementById('closeExport').focus();
+        button.textContent = 'Preparando PNG…';
         try {
-            await Promise.all([document.fonts.load(`bold ${p.config.nombre.size}px ${p.config.nombre.font}`), document.fonts.load(`bold ${p.config.numero.size}px ${p.config.numero.font}`)]);
-            if (generation !== exportGeneration) return;
-            if (tabId !== currentTabId || imageLoading) throw new Error('El proyecto cambió. Cierra y vuelve a exportar.');
+            await Promise.all([
+                document.fonts.load(`bold ${p.config.nombre.size}px ${p.config.nombre.font}`),
+                document.fonts.load(`bold ${p.config.numero.size}px ${p.config.numero.font}`)
+            ]);
+            if (tabId !== currentTabId || imageLoading) throw new Error('El proyecto cambió durante la descarga.');
             dibujar();
-            const blob = await new Promise((resolve, reject) => canvas.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo generar la imagen.')), 'image/png'));
-            if (generation !== exportGeneration) return;
-            const name = `${p.nombreTab}_${p.config.numero.texto}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 150) + '.png';
-            exportFile = new File([blob], name, {type:'image/png'});
-            exportURL = URL.createObjectURL(blob);
-            preview.src = exportURL;
-            downloadLink.href = exportURL;
-            downloadLink.download = name;
-            downloadLink.classList.remove('hidden');
-            const canShare = !!(navigator.share && navigator.canShare && navigator.canShare({files:[exportFile]}));
-            shareButton.disabled = !canShare;
-            exportStatus.textContent = canShare ? 'PNG listo. Elige cómo guardarlo o compartirlo.' : 'PNG listo. Descárgalo o mantén presionada la imagen para guardarla.';
+            const blob = await new Promise((resolve, reject) =>
+                canvas.toBlob(b => b ? resolve(b) : reject(new Error('No se pudo generar la imagen.')), 'image/png')
+            );
+            if (tabId !== currentTabId || imageLoading) throw new Error('El proyecto cambió durante la descarga.');
+            const filename = `${p.nombreTab}_${p.config.numero.texto}`.replace(/[<>:"/\\|?*\x00-\x1f]/g, '_').slice(0, 150) + '.png';
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = filename;
+            link.style.display = 'none';
+            document.body.appendChild(link);
+            link.click();
+            link.remove();
+            setTimeout(() => URL.revokeObjectURL(url), 60000);
         } catch (error) {
-            if (generation === exportGeneration) exportStatus.textContent = 'No se pudo exportar: ' + error.message;
+            alert('No se pudo descargar el folio: ' + error.message);
+        } finally {
+            downloading = false;
+            button.disabled = false;
+            button.innerHTML = originalLabel;
         }
     };
-    shareButton.onclick = async () => {
-        if (!exportFile) return;
-        shareButton.disabled = true;
-        try {
-            await navigator.share({files:[exportFile]});
-            exportStatus.textContent = 'Se completó la acción de compartir.';
-        } catch (error) {
-            exportStatus.textContent = error.name === 'AbortError' ? 'Compartir cancelado. Puedes volver a intentarlo.' : 'No se pudo compartir. Usa Descargar PNG o mantén presionada la imagen.';
-        } finally { shareButton.disabled = !exportFile; }
-    };
-    downloadLink.onclick = () => { exportStatus.textContent = 'Descarga solicitada. Revisa Descargas/Archivos; si no aparece, usa Compartir o mantén presionada la imagen.'; };
     if ('serviceWorker' in navigator && location.protocol !== 'file:') {
         window.addEventListener('load', () => navigator.serviceWorker.register('./service-worker.js').catch(console.error));
     }
