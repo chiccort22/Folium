@@ -65,6 +65,18 @@
         .export-card img { display:block; max-width:100%; max-height:55vh; margin:12px auto; object-fit:contain; }
         .export-card a { display:block; box-sizing:border-box; text-align:center; text-decoration:none; }
         .export-card button:disabled { opacity:.5; }
+        .project-modal { position:fixed; inset:0; z-index:1100; background:rgba(0,0,0,.55); display:flex; align-items:center; justify-content:center; padding:20px; box-sizing:border-box; }
+        .project-modal-card { background:#fff; color:#222; border-radius:18px; width:100%; max-width:390px; padding:24px; box-sizing:border-box; box-shadow:0 15px 45px #0003; }
+        .project-modal-card h2 { margin:0 0 20px; font-size:1.35rem; }
+        .project-modal-card input { box-sizing:border-box; width:100%; border:1px solid #cbd5e1; border-radius:10px; padding:13px; font-size:16px; outline-color:#2563eb; }
+        .project-modal-actions { display:flex; gap:10px; margin-top:22px; }
+        .project-modal-actions button { flex:1; border:0; border-radius:10px; padding:13px 8px; font-weight:700; font-size:15px; cursor:pointer; }
+        #cancelProject { background:#e2e8f0; color:#334155; }
+        #createProject { background:#059669; color:#fff; }
+        #cancelDelete { background:#e2e8f0; color:#334155; }
+        #confirmDelete { background:#dc2626; color:#fff; }
+        .delete-project-name { font-weight:700; overflow-wrap:anywhere; }
+        .delete-project-description { color:#64748b; line-height:1.5; }
     </style>
 
     <style>
@@ -111,6 +123,28 @@
   </form>
 </section>
 
+<div id="projectModal" class="project-modal hidden" role="dialog" aria-modal="true" aria-labelledby="projectModalTitle">
+  <form id="projectForm" class="project-modal-card">
+    <h2 id="projectModalTitle">Nuevo proyecto</h2>
+    <label for="projectName">Nombre del proyecto</label>
+    <input id="projectName" type="text" placeholder="Escribe un nombre..." maxlength="80" required autocomplete="off">
+    <div class="project-modal-actions">
+      <button type="button" id="cancelProject">Cancelar</button>
+      <button type="submit" id="createProject">Crear proyecto</button>
+    </div>
+  </form>
+</div>
+<div id="deleteModal" class="project-modal hidden" role="dialog" aria-modal="true" aria-labelledby="deleteModalTitle" aria-describedby="deleteModalDescription">
+  <div class="project-modal-card">
+    <h2 id="deleteModalTitle">Eliminar proyecto</h2>
+    <p id="deleteModalDescription" class="delete-project-description">¿Deseas eliminar el proyecto <span id="deleteProjectName" class="delete-project-name"></span>?</p>
+    <p class="delete-project-description">Se eliminarán también su plantilla y configuración. Esta acción no se puede deshacer.</p>
+    <div class="project-modal-actions">
+      <button type="button" id="cancelDelete">Cancelar</button>
+      <button type="button" id="confirmDelete">Eliminar</button>
+    </div>
+  </div>
+</div>
 <div class="container">
     <div class="tabs-container" id="tabsBar"></div>
 
@@ -275,7 +309,7 @@
         getReq.onsuccess = () => { 
             if (id !== currentTabId) return;
             const data = getReq.result;
-            img.src = data || ''; 
+            if (data) { img.src = data; } else { img.removeAttribute('src'); } 
             // Ocultar botón si ya hay imagen
             document.getElementById('uploadLabel').classList.toggle('hidden', !!data);
             if(!data) { imageLoading = false; canvas.width = 800; canvas.height = 600; dibujar(); } 
@@ -312,27 +346,58 @@
         addBtn.className = 'add-tab';
         addBtn.innerHTML = '<i class="fa-solid fa-plus"></i>';
         addBtn.onclick = () => {
-            const n = prompt("Nombre:");
-            if(n) {
-                const id = "tab_" + Date.now();
-                proyectos.push({ id, nombreTab: n, config: configBase() });
-                localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
-                switchTab(id);
-                // Activar carga de imagen automáticamente al crear
-                setTimeout(() => document.getElementById('imageLoader').click(), 100);
-            }
+            document.getElementById('projectName').value = '';
+            document.getElementById('projectModal').classList.remove('hidden');
+            document.getElementById('projectName').focus();
         };
         bar.appendChild(addBtn);
     }
 
-    function deleteTab(id) {
-        if (!confirm("¿Eliminar proyecto?")) return;
-        proyectos = proyectos.filter(p => p.id !== id);
-        db.transaction(["imagenes"], "readwrite").objectStore("imagenes").delete(id);
-        if (currentTabId === id) currentTabId = proyectos[0] ? proyectos[0].id : null;
+    const projectModal = document.getElementById('projectModal');
+    const closeProjectModal = () => projectModal.classList.add('hidden');
+    document.getElementById('cancelProject').onclick = closeProjectModal;
+    projectModal.addEventListener('click', e => { if (e.target === projectModal) closeProjectModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !projectModal.classList.contains('hidden')) closeProjectModal(); });
+    document.getElementById('projectForm').addEventListener('submit', e => {
+        e.preventDefault();
+        const n = document.getElementById('projectName').value.trim();
+        if (!n) return;
+        const id = 'tab_' + Date.now();
+        proyectos.push({ id, nombreTab: n, config: configBase() });
         localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
-        if (currentTabId) switchTab(currentTabId); else location.reload();
+        closeProjectModal();
+        switchTab(id);
+        // La selección de archivo se inicia desde el gesto del usuario al crear el proyecto.
+        document.getElementById('imageLoader').click();
+    });
+
+    const deleteModal = document.getElementById('deleteModal');
+    let pendingDeleteId = null;
+    function closeDeleteModal() {
+        deleteModal.classList.add('hidden');
+        pendingDeleteId = null;
     }
+    function deleteTab(id) {
+        const p = proyectos.find(project => project.id === id);
+        if (!p || proyectos.length <= 1) return;
+        pendingDeleteId = id;
+        document.getElementById('deleteProjectName').textContent = p.nombreTab;
+        deleteModal.classList.remove('hidden');
+        document.getElementById('cancelDelete').focus();
+    }
+    document.getElementById('cancelDelete').onclick = closeDeleteModal;
+    deleteModal.addEventListener('click', e => { if (e.target === deleteModal) closeDeleteModal(); });
+    document.addEventListener('keydown', e => { if (e.key === 'Escape' && !deleteModal.classList.contains('hidden')) closeDeleteModal(); });
+    document.getElementById('confirmDelete').onclick = () => {
+        const id = pendingDeleteId;
+        if (!id || !proyectos.some(p => p.id === id) || proyectos.length <= 1) { closeDeleteModal(); return; }
+        closeDeleteModal();
+        proyectos = proyectos.filter(p => p.id !== id);
+        db.transaction(['imagenes'], 'readwrite').objectStore('imagenes').delete(id);
+        if (currentTabId === id) currentTabId = proyectos[0].id;
+        localStorage.setItem('proyectosChicco', JSON.stringify(proyectos));
+        switchTab(currentTabId);
+    };
 
     function stepVal(id, amount) {
         const el = document.getElementById(id);
@@ -356,6 +421,7 @@
 
     document.getElementById('imageLoader').onchange = (e) => {
         const file = e.target.files[0];
+        e.target.value = ''; // Permite seleccionar el mismo archivo otra vez
         const targetTabId = currentTabId;
         if (!file) return;
         imageLoading = true;
